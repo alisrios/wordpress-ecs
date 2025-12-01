@@ -1,15 +1,16 @@
-resource "aws_autoscaling_group" "ecs" {
-  name                      = "cluster-ecs-bia-asg-tf"
-  vpc_zone_identifier       = [aws_subnet.subnet_publica_zona_a.id, aws_subnet.subnet_publica_zona_b.id]
-  min_size                  = 2
-  desired_capacity          = 2
-  max_size                  = 2
+# Auto Scaling Group para ECS
+resource "aws_autoscaling_group" "this" {
+  name                      = var.asg.name
+  vpc_zone_identifier       = aws_subnet.public[*].id
+  min_size                  = var.asg.min_size
+  desired_capacity          = var.asg.desired_capacity
+  max_size                  = var.asg.max_size
   health_check_grace_period = 0
   health_check_type         = "EC2"
   protect_from_scale_in     = false
 
   launch_template {
-    id      = aws_launch_template.ecs_ec2.id
+    id      = aws_launch_template.this.id
     version = "$Latest"
   }
 
@@ -19,7 +20,7 @@ resource "aws_autoscaling_group" "ecs" {
 
   tag {
     key                 = "Name"
-    value               = "cluster-bia-tf"
+    value               = var.asg.name
     propagate_at_launch = true
   }
 
@@ -28,11 +29,21 @@ resource "aws_autoscaling_group" "ecs" {
     value               = ""
     propagate_at_launch = true
   }
+
+  dynamic "tag" {
+    for_each = var.tags
+    content {
+      key                 = tag.key
+      value               = tag.value
+      propagate_at_launch = true
+    }
+  }
 }
 
+# Lifecycle Hook para dreno de instâncias ECS
 resource "aws_autoscaling_lifecycle_hook" "ecs_terminate_hook" {
   name                   = "ecs-managed-draining-termination-hook"
-  autoscaling_group_name = aws_autoscaling_group.ecs.name
+  autoscaling_group_name = aws_autoscaling_group.this.name
   lifecycle_transition   = "autoscaling:EC2_INSTANCE_TERMINATING"
   heartbeat_timeout      = 60
   default_result         = "CONTINUE"

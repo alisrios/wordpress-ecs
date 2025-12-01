@@ -1,39 +1,97 @@
-resource "aws_ecs_task_definition" "bia_web" {
-  family             = "task-def-bia-tf"
+# Task Definition ECS para WordPress
+resource "aws_ecs_task_definition" "this" {
+  family             = var.ecs_task.family
   network_mode       = "bridge"
   task_role_arn      = aws_iam_role.ecs_task_role.arn
-  execution_role_arn = aws_iam_role.ecs_task_execution_role.arn # Adicionando a Task Execution Role
-  container_definitions = jsonencode([{
-    name      = "bia-tf"
-    image     = "${aws_ecr_repository.bia_tf.repository_url}:latest"
-    essential = true
-    portMappings = [{
-      containerPort = 8080
-      hostPort      = 0
-      name          = "porta-aleatoria" # Nome da porta
-      appProtocol   = "http"            # Protocolo da aplicação
-    }]
-    cpu               = 1024
-    memoryReservation = 410
-    environment = [
-      { name = "DB_PORT", value = "5432" },
-      { name = "DB_HOST", value = "${aws_db_instance.db_bia_tf.address}" },
-      { name = "DB_SECRET_NAME", value = "${data.aws_secretsmanager_secret.db_bia_tf.name}" },
-      { name = "DB_REGION", value = "us-east-1" },
-      { name = "DEBUG_SECRET", value = "false" },
-    ]
-    logConfiguration = {
-      logDriver = "awslogs"
-      options = {
-        "awslogs-region"        = "us-east-1"
-        "awslogs-group"         = aws_cloudwatch_log_group.ecs_bia_web.name
-        "awslogs-stream-prefix" = "bia-tf"
-      }
-    }
-  }])
+  execution_role_arn = aws_iam_role.ecs_task_execution_role.arn
+
+  requires_compatibilities = ["EC2"]
 
   runtime_platform {
     cpu_architecture        = "ARM64"
     operating_system_family = "LINUX"
   }
+
+  # Volume EFS
+  volume {
+    name = var.efs.volume_name
+
+    efs_volume_configuration {
+      file_system_id     = aws_efs_file_system.this.id
+      transit_encryption = var.efs.transit_encryption
+      authorization_config {
+        iam = "ENABLED"
+      }
+    }
+  }
+
+  container_definitions = jsonencode([
+    {
+      name              = var.ecs_task.container_name
+      image             = var.ecs_task.image
+      essential         = true
+      cpu               = var.ecs_task.cpu
+      memoryReservation = var.ecs_task.memory_reservation
+
+      portMappings = [
+        {
+          containerPort = var.ecs_task.container_port
+          hostPort      = 0
+          name          = "porta_${var.ecs_task.container_port}"
+          protocol      = "tcp"
+          appProtocol   = "http"
+        }
+      ]
+
+      environment = [
+        {
+          name  = "WORDPRESS_DB_HOST"
+          value = aws_db_instance.this.address
+        },
+        {
+          name  = "WORDPRESS_DB_USER"
+          value = var.rds.username
+        },
+        {
+          name  = "WORDPRESS_DB_PASSWORD"
+          value = var.rds.password
+        },
+        {
+          name  = "WORDPRESS_DB_NAME"
+          value = var.rds.database_name
+        }
+      ]
+
+      mountPoints = [
+        {
+          sourceVolume  = var.efs.volume_name
+          containerPath = var.efs.container_path
+          readOnly      = false
+        }
+      ]
+
+      logConfiguration = {
+        logDriver = "awslogs"
+        options = {
+          "awslogs-group"         = var.ecs_task.log_group
+          "awslogs-region"        = var.auth.region
+          "awslogs-stream-prefix" = "ecs"
+          "awslogs-create-group"  = "true"
+          "mode"                  = "non-blocking"
+          "max-buffer-size"       = "25m"
+        }
+      }
+
+      systemControls = []
+      ulimits        = []
+      volumesFrom    = []
+    }
+  ])
+
+  tags = merge(
+    var.tags,
+    {
+      Name = var.ecs_task.family
+    }
+  )
 }

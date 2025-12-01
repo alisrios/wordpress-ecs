@@ -1,16 +1,17 @@
-# Security Group bia-dev-tf
-resource "aws_security_group" "bia_dev_tf" {
-  name        = "bia-dev-tf"
-  description = "Acesso ao bia-dev-tf"
-  vpc_id      = aws_vpc.bia_tf_vpc.id
+resource "aws_security_group" "efs" {
+  name        = var.security_groups.efs.name
+  description = var.security_groups.efs.description
+  vpc_id      = aws_vpc.this.id
 
   ingress {
-    description = "acesso para o mundo"
-    from_port   = 3001
-    to_port     = 3001
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = var.security_groups.efs.ingress.description
+    from_port       = var.security_groups.efs.ingress.from_port
+    to_port         = var.security_groups.efs.ingress.to_port
+    protocol        = var.security_groups.efs.ingress.protocol
+    cidr_blocks     = []
+    security_groups = [aws_security_group.ec2.id]
   }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -18,25 +19,28 @@ resource "aws_security_group" "bia_dev_tf" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "bia-dev-tf"
-  }
-
+  tags = merge(
+    var.tags,
+    {
+      Name = var.security_groups.efs.name
+    }
+  )
 }
 
-# Security Group bia-web-tf
-resource "aws_security_group" "bia_web_tf" {
-  name        = "bia-web-tf"
-  description = "Acesso ao bia-web-tf"
-  vpc_id      = aws_vpc.bia_tf_vpc.id
+resource "aws_security_group" "ec2" {
+  name        = var.security_groups.ec2.name
+  description = var.security_groups.ec2.description
+  vpc_id      = aws_vpc.this.id
 
   ingress {
-    description = "acesso para o mundo"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = var.security_groups.ec2.ingress.description
+    from_port       = var.security_groups.ec2.ingress.from_port
+    to_port         = var.security_groups.ec2.ingress.to_port
+    protocol        = var.security_groups.ec2.ingress.protocol
+    cidr_blocks     = []
+    security_groups = [aws_security_group.alb.id]
   }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -44,26 +48,35 @@ resource "aws_security_group" "bia_web_tf" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "bia-web-tf"
-  }
-
+  tags = merge(
+    var.tags,
+    {
+      Name = var.security_groups.ec2.name
+    }
+  )
 }
 
-# Security Group bia-ec2-tf
-resource "aws_security_group" "bia_ec2_tf" {
-  name        = "bia-ec2-tf"
-  description = "Acesso ao bia-ec2-tf"
-  vpc_id      = aws_vpc.bia_tf_vpc.id
+resource "aws_security_group" "alb" {
+  name        = var.security_groups.alb.name
+  description = var.security_groups.alb.description
+  vpc_id      = aws_vpc.this.id
 
   ingress {
-    description     = "acesso do bia-alb-tf"
-    from_port       = 0
-    to_port         = 65535
-    protocol        = "tcp"
-    cidr_blocks     = []
-    security_groups = [aws_security_group.bia_alb_tf.id]
+    description = var.security_groups.alb.ingress_http.description
+    from_port   = var.security_groups.alb.ingress_http.from_port
+    to_port     = var.security_groups.alb.ingress_http.to_port
+    protocol    = var.security_groups.alb.ingress_http.protocol
+    cidr_blocks = ["0.0.0.0/0"]
   }
+
+  ingress {
+    description = var.security_groups.alb.ingress_https.description
+    from_port   = var.security_groups.alb.ingress_https.from_port
+    to_port     = var.security_groups.alb.ingress_https.to_port
+    protocol    = var.security_groups.alb.ingress_https.protocol
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
   egress {
     from_port   = 0
     to_port     = 0
@@ -71,31 +84,26 @@ resource "aws_security_group" "bia_ec2_tf" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "bia-ec2-tf"
-  }
-
+  tags = merge(
+    var.tags,
+    {
+      Name = var.security_groups.alb.name
+    }
+  )
 }
 
-# Security Group bia-alb-tf
-resource "aws_security_group" "bia_alb_tf" {
-  name        = "bia-alb-tf"
-  description = "Acesso ao bia-alb-tf"
-  vpc_id      = aws_vpc.bia_tf_vpc.id
+resource "aws_security_group" "db" {
+  name        = var.security_groups.db.name
+  description = var.security_groups.db.description
+  vpc_id      = aws_vpc.this.id
 
   ingress {
-    description = "acesso para o mundo"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-  ingress {
-    description = "acesso para o mundo"
-    from_port   = 443
-    to_port     = 443
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = var.security_groups.db.ingress.description
+    from_port       = var.security_groups.db.ingress.from_port
+    to_port         = var.security_groups.db.ingress.to_port
+    protocol        = var.security_groups.db.ingress.protocol
+    cidr_blocks     = []
+    security_groups = [aws_security_group.ec2.id]
   }
 
   egress {
@@ -105,51 +113,10 @@ resource "aws_security_group" "bia_alb_tf" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  tags = {
-    Name = "bia-alb-tf"
-  }
-
-}
-
-# Security Group bia-ec2-tf
-resource "aws_security_group" "bia_db_tf" {
-  name        = "bia-db-tf"
-  description = "Acesso ao bia-db-tf"
-  vpc_id      = aws_vpc.bia_tf_vpc.id
-
-  ingress {
-    description     = "acesso do bia-dev-tf"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    cidr_blocks     = []
-    security_groups = [aws_security_group.bia_dev_tf.id]
-  }
-  ingress {
-    description     = "acesso do bia-ec2-tf"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    cidr_blocks     = []
-    security_groups = [aws_security_group.bia_ec2_tf.id]
-  }
-  ingress {
-    description     = "acesso do bia-web-tf"
-    from_port       = 5432
-    to_port         = 5432
-    protocol        = "tcp"
-    cidr_blocks     = []
-    security_groups = [aws_security_group.bia_web_tf.id]
-  }
-  egress {
-    from_port   = 0
-    to_port     = 0
-    protocol    = "-1"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  tags = {
-    Name = "bia-db-tf"
-  }
-
+  tags = merge(
+    var.tags,
+    {
+      Name = var.security_groups.db.name
+    }
+  )
 }

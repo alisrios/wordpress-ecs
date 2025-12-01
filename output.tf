@@ -1,35 +1,24 @@
-output "instance_ip" {
-  description = "Ip da instancia bia-dev-tf"
-  value       = aws_instance.bia_dev_tf.public_ip
-}
-
 output "rds_endpoint" {
-  description = "Endpoint do RDS da BIA"
-  value       = aws_db_instance.db_bia_tf.endpoint
+  description = "Endpoint do RDS"
+  value       = aws_db_instance.this.endpoint
 }
 
-output "rds_secrets" {
-  description = "Secrets associado ao RDS"
-  value       = aws_db_instance.db_bia_tf.master_user_secret[0].secret_arn
+output "alb_dns_name" {
+  description = "DNS name do Application Load Balancer"
+  value       = aws_lb.this.dns_name
 }
 
-output "rds_secret_name" {
-  description = "Nome do meu segredo"
-  value       = data.aws_secretsmanager_secret.db_bia_tf.name
+output "cloudfront_domain_name" {
+  description = "Domain name do CloudFront"
+  value       = aws_cloudfront_distribution.this.domain_name
 }
 
-output "bia_repo_url" {
-  value = aws_ecr_repository.bia_tf.repository_url
+output "ecs_cluster_name" {
+  description = "Nome do cluster ECS"
+  value       = aws_ecs_cluster.this.name
 }
 
-output "alb_url" {
-  value = aws_lb.bia_alb_internal_tf.dns_name
-}
-
-output "certificado_arn" {
-  value = data.aws_acm_certificate.certificado.arn
-}
-
-output "cloudfront_vpc_origin" {
-  value = aws_cloudfront_vpc_origin.alb_vpc_origin.id
+output "vpc_id" {
+  description = "ID da VPC"
+  value       = aws_vpc.this.id
 }

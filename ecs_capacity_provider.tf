@@ -1,8 +1,9 @@
-resource "aws_ecs_capacity_provider" "bia_tf" {
-  name = "cluster-bia-tf"
+# Capacity Provider para ECS, vinculado ao Auto Scaling Group
+resource "aws_ecs_capacity_provider" "this" {
+  name = "${var.ecs_cluster.name}-capacity-provider"
 
   auto_scaling_group_provider {
-    auto_scaling_group_arn         = aws_autoscaling_group.ecs.arn
+    auto_scaling_group_arn         = aws_autoscaling_group.this.arn
     managed_termination_protection = "DISABLED"
 
     managed_scaling {
@@ -12,14 +13,22 @@ resource "aws_ecs_capacity_provider" "bia_tf" {
       target_capacity           = 100
     }
   }
+
+  tags = merge(
+    var.tags,
+    {
+      Name = "${var.ecs_cluster.name}-capacity-provider"
+    }
+  )
 }
 
-resource "aws_ecs_cluster_capacity_providers" "main" {
-  cluster_name       = aws_ecs_cluster.cluster_bia_tf.name
-  capacity_providers = [aws_ecs_capacity_provider.bia_tf.name]
+# Associação do Capacity Provider ao cluster ECS
+resource "aws_ecs_cluster_capacity_providers" "this" {
+  cluster_name       = aws_ecs_cluster.this.name
+  capacity_providers = [aws_ecs_capacity_provider.this.name]
 
   default_capacity_provider_strategy {
-    capacity_provider = aws_ecs_capacity_provider.bia_tf.name
+    capacity_provider = aws_ecs_capacity_provider.this.name
     base              = 1
     weight            = 100
   }
