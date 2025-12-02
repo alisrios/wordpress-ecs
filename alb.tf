@@ -41,18 +41,6 @@ resource "aws_lb_target_group" "this" {
   )
 }
 
-# Listener HTTP do ALB
-resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.this.id
-  port              = var.alb.listener.http_port
-  protocol          = "HTTP"
-
-  default_action {
-    type             = "forward"
-    target_group_arn = aws_lb_target_group.this.id
-  }
-}
-
 # Listener HTTPS do ALB
 resource "aws_lb_listener" "https" {
   load_balancer_arn = aws_lb.this.id

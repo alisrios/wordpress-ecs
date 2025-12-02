@@ -62,19 +62,11 @@ resource "aws_security_group" "alb" {
   vpc_id      = aws_vpc.this.id
 
   ingress {
-    description = var.security_groups.alb.ingress_http.description
-    from_port   = var.security_groups.alb.ingress_http.from_port
-    to_port     = var.security_groups.alb.ingress_http.to_port
-    protocol    = var.security_groups.alb.ingress_http.protocol
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    description = var.security_groups.alb.ingress_https.description
-    from_port   = var.security_groups.alb.ingress_https.from_port
-    to_port     = var.security_groups.alb.ingress_https.to_port
-    protocol    = var.security_groups.alb.ingress_https.protocol
-    cidr_blocks = ["0.0.0.0/0"]
+    description     = var.security_groups.alb.ingress_https.description
+    from_port       = var.security_groups.alb.ingress_https.from_port
+    to_port         = var.security_groups.alb.ingress_https.to_port
+    protocol        = var.security_groups.alb.ingress_https.protocol
+    prefix_list_ids = [data.aws_ec2_managed_prefix_list.cloudfront.id]
   }
 
   egress {

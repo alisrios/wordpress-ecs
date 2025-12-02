@@ -85,12 +85,6 @@ variable "security_groups" {
     alb = object({
       name        = string
       description = string
-      ingress_http = object({
-        description = string
-        from_port   = number
-        to_port     = number
-        protocol    = string
-      })
       ingress_https = object({
         description = string
         from_port   = number
@@ -133,14 +127,8 @@ variable "security_groups" {
     alb = {
       name        = "alb-wordpress-tf"
       description = "Security group for Application Load Balancer"
-      ingress_http = {
-        description = "HTTP from internet"
-        from_port   = 80
-        to_port     = 80
-        protocol    = "tcp"
-      }
       ingress_https = {
-        description = "HTTPS from internet"
+        description = "HTTPS from CloudFront"
         from_port   = 443
         to_port     = 443
         protocol    = "tcp"
@@ -183,7 +171,6 @@ variable "alb" {
   type = object({
     name = string
     listener = object({
-      http_port  = number
       https_port = number
       ssl_policy = string
     })
@@ -203,7 +190,6 @@ variable "alb" {
   default = {
     name = "alb-wordpress-tf"
     listener = {
-      http_port  = 80
       https_port = 443
       ssl_policy = "ELBSecurityPolicy-TLS13-1-2-2021-06"
     }

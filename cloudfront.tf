@@ -11,13 +11,14 @@ resource "aws_cloudfront_distribution" "this" {
 
   # Behavior 0: /wp-content/* - Arquivos estáticos do WordPress
   ordered_cache_behavior {
-    path_pattern           = "/wp-content/*"
-    allowed_methods        = ["GET", "HEAD", "OPTIONS"]
-    cached_methods         = ["GET", "HEAD"]
-    target_origin_id       = "wordpress-alb"
-    viewer_protocol_policy = "redirect-to-https"
-    compress               = true
-    cache_policy_id        = aws_cloudfront_cache_policy.wordpress_wp_content.id
+    path_pattern               = "/wp-content/*"
+    allowed_methods            = ["GET", "HEAD", "OPTIONS"]
+    cached_methods             = ["GET", "HEAD"]
+    target_origin_id           = "wordpress-alb"
+    viewer_protocol_policy     = "redirect-to-https"
+    compress                   = true
+    cache_policy_id            = aws_cloudfront_cache_policy.wordpress_wp_content.id
+    response_headers_policy_id = data.aws_cloudfront_response_headers_policy.managed_simple_cors.id
   }
 
   # Behavior 1: /wp-admin/* - Área administrativa do WordPress
@@ -59,7 +60,7 @@ resource "aws_cloudfront_distribution" "this" {
     origin_id   = "wordpress-alb"
 
     custom_origin_config {
-      http_port              = var.alb.listener.http_port
+      http_port              = 80
       https_port             = var.alb.listener.https_port
       origin_protocol_policy = "https-only"
       origin_ssl_protocols   = ["TLSv1.2"]

@@ -47,18 +47,21 @@ resource "aws_ecs_task_definition" "this" {
         {
           name  = "WORDPRESS_DB_HOST"
           value = aws_db_instance.this.address
+        }
+      ]
+
+      secrets = [
+        {
+          name      = "WORDPRESS_DB_USER"
+          valueFrom = aws_ssm_parameter.db_username.arn
         },
         {
-          name  = "WORDPRESS_DB_USER"
-          value = var.rds.username
+          name      = "WORDPRESS_DB_PASSWORD"
+          valueFrom = aws_ssm_parameter.db_password.arn
         },
         {
-          name  = "WORDPRESS_DB_PASSWORD"
-          value = var.rds.password
-        },
-        {
-          name  = "WORDPRESS_DB_NAME"
-          value = var.rds.database_name
+          name      = "WORDPRESS_DB_NAME"
+          valueFrom = aws_ssm_parameter.db_name.arn
         }
       ]
 

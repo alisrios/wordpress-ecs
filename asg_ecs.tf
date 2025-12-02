@@ -20,7 +20,7 @@ resource "aws_autoscaling_group" "this" {
 
   tag {
     key                 = "Name"
-    value               = var.asg.name
+    value               = "${var.ecs_cluster.name}-instance"
     propagate_at_launch = true
   }
 
