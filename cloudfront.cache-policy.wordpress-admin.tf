@@ -1,10 +1,10 @@
 # Cache Policy customizada para admin do WordPress
 resource "aws_cloudfront_cache_policy" "wordpress_admin" {
   name        = "Cache-Wordpress-admin-tf"
-  comment     = "Policy para admin desativando cache"
-  default_ttl = 86400
-  max_ttl     = 31536000
-  min_ttl     = 1
+  comment     = "Policy para admin com cache mínimo"
+  default_ttl = 1
+  max_ttl     = 1
+  min_ttl     = 0
 
   parameters_in_cache_key_and_forwarded_to_origin {
     # Headers

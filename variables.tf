@@ -272,12 +272,10 @@ variable "rds" {
 variable "cloudfront" {
   type = object({
     aliases     = list(string)
-    root_object = string
     price_class = string
   })
   default = {
     aliases     = ["wordpress-tf.alisriosti.com.br"]
-    root_object = "index.html"
     price_class = "PriceClass_All"
   }
 }

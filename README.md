@@ -2,7 +2,7 @@
 
 Infraestrutura completa para WordPress rodando em ECS com Auto Scaling, CloudFront, RDS MySQL e EFS.
 
-## Arquitetura
+## 🏗️ Arquitetura
 
 - **Compute**: ECS com EC2 (ARM64 - t4g.small)
 - **Load Balancer**: Application Load Balancer (HTTPS only)
@@ -11,203 +11,227 @@ Infraestrutura completa para WordPress rodando em ECS com Auto Scaling, CloudFro
 - **Storage**: EFS para arquivos do WordPress
 - **Networking**: VPC com subnets públicas e privadas
 - **Security**: Security Groups com prefix list do CloudFront
+- **Secrets**: AWS Systems Manager Parameter Store
 
-## Estrutura de Arquivos
+## 📁 Estrutura de Arquivos
 
 ### Configuração Principal
 
-#### `main.tf`
-Configura o provider AWS, backend S3 para state e assume role.
+| Arquivo | Descrição |
+|---------|-----------|
+| `main.tf` | Provider AWS, backend S3 e assume role |
+| `variables.tf` | Todas as variáveis organizadas por recurso |
+| `data.tf` | Data sources (ACM, CloudFront prefix list, políticas gerenciadas) |
+| `output.tf` | Outputs (RDS endpoint, ALB DNS, CloudFront domain, etc) |
 
-#### `variables.tf`
-Define todas as variáveis do projeto organizadas por recurso:
-- `tags`: Tags padrão do projeto
-- `auth`: Configurações de autenticação AWS
-- `vpc`: Configuração completa da VPC e subnets
-- `security_groups`: Security groups para ALB, EC2, RDS e EFS
-- `alb`: Configuração do Application Load Balancer
-- `ecs_cluster`: Nome do cluster ECS
-- `ecs_service`: Configuração do serviço ECS
-- `ecs_task`: Configuração da task definition
-- `asg`: Auto Scaling Group
-- `rds`: Configuração do RDS MySQL
-- `cloudfront`: Configuração do CloudFront
-- `efs`: Configuração do EFS
-- `ecr`: Repositório ECR
+### 🌐 Networking (VPC)
 
-#### `data.tf`
-Data sources para recursos existentes:
-- Certificado ACM
-- Prefix list do CloudFront
-- Políticas gerenciadas do CloudFront (AllViewer, SimpleCORS)
+| Arquivo | Descrição |
+|---------|-----------|
+| `vpc.tf` | VPC principal com DNS habilitado |
+| `vpc.public-subnets.tf` | Subnets públicas (2 AZs) usando count |
+| `vpc.private-subnets.tf` | Subnets privadas (2 AZs) usando count |
+| `vpc.internet-gateway.tf` | Internet Gateway |
+| `vpc.public-route-table.tf` | Route table pública com rota para IGW |
+| `vpc.private-route-table.tf` | Route table privada |
 
-#### `output.tf`
-Outputs do Terraform:
-- Endpoint do RDS
-- DNS do ALB
-- Domain name do CloudFront
-- Nome do cluster ECS
-- VPC ID
+**CIDR Blocks:**
+- VPC: `10.0.0.0/16`
+- Public Subnets: `10.0.0.0/20`, `10.0.16.0/20`
+- Private Subnets: `10.0.128.0/20`, `10.0.144.0/20`
 
-### Networking (VPC)
+### 🔒 Security
 
-#### `vpc.tf`
-Cria a VPC principal com DNS habilitado.
+| Arquivo | Descrição |
+|---------|-----------|
+| `security_group.tf` | Security Groups para ALB, EC2, RDS e EFS |
 
-#### `vpc.public-subnets.tf`
-Cria subnets públicas em múltiplas AZs usando count.
-
-#### `vpc.private-subnets.tf`
-Cria subnets privadas em múltiplas AZs usando count.
-
-#### `vpc.internet-gateway.tf`
-Cria o Internet Gateway para acesso à internet.
-
-#### `vpc.public-route-table.tf`
-Cria route table pública com rota para o Internet Gateway.
-
-#### `vpc.private-route-table.tf`
-Cria route table privada (sem acesso direto à internet).
-
-### Security
-
-#### `security_group.tf`
-Define Security Groups:
+**Security Groups:**
 - **ALB**: HTTPS (443) apenas de IPs do CloudFront (prefix list)
-- **EC2**: Todo tráfego do ALB
+- **EC2**: Todo tráfego (0-65535) do ALB
 - **RDS**: MySQL (3306) das instâncias EC2
 - **EFS**: NFS (2049) das instâncias EC2
 
-### Load Balancer
+### ⚖️ Load Balancer
 
-#### `alb.tf`
-Configura o Application Load Balancer:
-- Internet-facing (público)
-- Listener HTTPS (443) com certificado ACM
-- Target Group para instâncias ECS
-- Health checks customizados
+| Arquivo | Descrição |
+|---------|-----------|
+| `alb.tf` | ALB internet-facing, listener HTTPS, target group |
 
-### ECS (Elastic Container Service)
+**Configuração:**
+- Tipo: Internet-facing
+- Listener: HTTPS (443) com certificado ACM
+- Target Group: HTTP (80) para instâncias ECS
+- Health Check: `/` com matcher `200,301,302`
 
-#### `ecs_cluster.tf`
-Cria o cluster ECS.
+### 🐳 ECS (Elastic Container Service)
 
-#### `ecs_service.tf`
-Configura o serviço ECS:
-- Integração com ALB
-- Capacity provider strategy
-- Placement strategy (spread por AZ)
-- Deployment configuration
+| Arquivo | Descrição |
+|---------|-----------|
+| `ecs_cluster.tf` | Cluster ECS |
+| `ecs_service.tf` | Serviço ECS com integração ALB |
+| `ecs_task_definition.tf` | Task definition do WordPress |
+| `ecs_launch_template.tf` | Launch template para instâncias EC2 |
+| `ecs_capacity_provider.tf` | Capacity provider para auto scaling |
 
-#### `ecs_task_definition.tf`
-Define a task definition do WordPress:
-- Container WordPress (latest)
-- Volume EFS montado em /var/www/html
-- Environment variables e secrets do Parameter Store
-- CloudWatch Logs
-- Runtime platform: ARM64/Linux
+**Task Definition:**
+- Container: `wordpress:latest`
+- CPU: 1024
+- Memory Reservation: 410 MB
+- Port: 80
+- Volume EFS: `/var/www/html`
+- Secrets: Parameter Store (DB credentials)
+- Logs: CloudWatch
 
-#### `ecs_launch_template.tf`
-Launch Template para instâncias EC2:
-- AMI otimizada para ECS (Amazon Linux 2023 ARM64)
-- Instance type: t4g.small
-- User data para registrar no cluster
-- IAM instance profile
+### 📈 Auto Scaling
 
-#### `ecs_capacity_provider.tf`
-Capacity Provider para auto scaling gerenciado pelo ECS.
+| Arquivo | Descrição |
+|---------|-----------|
+| `asg_ecs.tf` | Auto Scaling Group com lifecycle hooks |
 
-### Auto Scaling
-
-#### `asg_ecs.tf`
-Auto Scaling Group:
+**Configuração:**
 - Min/Desired/Max: 2/2/2
-- Subnets públicas
-- Lifecycle hooks para draining
-- Tags propagadas para instâncias
+- Subnets: Públicas
+- Instance Type: t4g.small (ARM64)
+- Lifecycle Hook: Draining ao terminar
 
-### Database
+### 🗄️ Database
 
-#### `rds_db_instance.tf`
-RDS MySQL:
+| Arquivo | Descrição |
+|---------|-----------|
+| `rds_db_instance.tf` | RDS MySQL e DB subnet group |
+| `parameter-store.tf` | Parameter Store para secrets |
+
+**RDS:**
 - Engine: MySQL 8.0
-- Instance class: db.t4g.micro
+- Instance: db.t4g.micro
 - Storage: 20GB gp2 encrypted
-- Senha gerenciada manualmente (self-managed)
-- DB subnet group com subnets privadas
+- Multi-AZ: Desabilitado
+- Subnets: Privadas
+- Senha: Self-managed via Parameter Store
 
-#### `parameter-store.tf`
-AWS Systems Manager Parameter Store:
+**Parameter Store:**
 - `/wordpress/db/password` (SecureString)
 - `/wordpress/db/username` (String)
 - `/wordpress/db/name` (String)
 
-### Storage
+### 💾 Storage
 
-#### `efs.tf`
-Elastic File System:
-- Performance mode: generalPurpose
-- Throughput mode: elastic
-- Encrypted
-- Lifecycle policy: transition to IA após 30 dias
-- Mount targets em subnets privadas
+| Arquivo | Descrição |
+|---------|-----------|
+| `efs.tf` | EFS file system e mount targets |
 
-### CDN
+**Configuração:**
+- Performance: generalPurpose
+- Throughput: elastic
+- Encrypted: Sim
+- Lifecycle: Transition to IA após 30 dias
+- Mount Targets: Subnets privadas
 
-#### `cloudfront.tf`
-CloudFront Distribution:
-- Aliases customizados
-- Origin: ALB via HTTPS
-- **Behaviors**:
-  - `/wp-content/*`: Cache longo, CORS habilitado
-  - `/wp-admin/*`: Cache com cookies WordPress
-  - `/wp-includes/images/blank.gif`: Cache longo
-  - Default: Cache padrão com cookies e query strings
+### 🌍 CDN (CloudFront)
 
-#### `cloudfront.cache-policy.wordpress-admin.tf`
-Cache policy para área administrativa.
+| Arquivo | Descrição |
+|---------|-----------|
+| `cloudfront.tf` | CloudFront distribution |
+| `cloudfront.cache-policy.wordpress-admin.tf` | Cache policy para wp-admin |
+| `cloudfront.cache-policy.wordpress-default.tf` | Cache policy padrão |
+| `cloudfront.cache-policy.wordpress-wp-content.tf` | Cache policy para wp-content |
+| `cloudfront.origin-request-policy.wordpress-general.tf` | Origin request policy |
 
-#### `cloudfront.cache-policy.wordpress-default.tf`
-Cache policy padrão para WordPress.
+**Behaviors (ordem de precedência):**
 
-#### `cloudfront.cache-policy.wordpress-wp-content.tf`
-Cache policy para arquivos estáticos.
+| Precedência | Path Pattern | Cache Policy | Origin Request | Response Headers |
+|-------------|--------------|--------------|----------------|------------------|
+| 0 | `/wp-content/*` | wordpress-wp-content-tf | - | Managed-SimpleCORS |
+| 1 | `/wp-admin/*` | wordpress-admin-tf | - | - |
+| 2 | `/wp-includes/images/blank.gif` | wordpress-wp-content-tf | - | - |
+| 3 (Default) | `*` | wordpress-default-tf | wordpress-general-tf | - |
 
-#### `cloudfront.origin-request-policy.wordpress-general.tf`
-Origin request policy com todos os headers, cookies WordPress e query strings.
+**Cache Policies:**
+- **wordpress-wp-content-tf**: TTL 1s-86400s-31536000s, Headers (Origin, CORS), No cookies/query strings
+- **wordpress-admin-tf**: TTL 1s-86400s-31536000s, Headers (Origin, Referer, Host), Cookies WordPress, All query strings
+- **wordpress-default-tf**: TTL 1s-600s-31536000s, Headers (Origin, Referer, Host), Cookies WordPress, All query strings
 
-### DNS
+### 🌐 DNS
 
-#### `route53.tf`
-Registro Route 53:
-- Tipo A com alias para CloudFront
-- Domínio: wordpress-tf.alisriosti.com.br
+| Arquivo | Descrição |
+|---------|-----------|
+| `route53.tf` | Registro Route 53 tipo A com alias |
 
-### IAM
+**Configuração:**
+- Tipo: A (alias para CloudFront)
+- Domínio: `wordpress-tf.alisriosti.com.br`
+- Zone: `alisriosti.com.br`
 
-#### `iam.ecs-instance-role.tf`
-IAM Role para instâncias EC2:
-- Permissões para registrar no ECS
-- Acesso ao EC2
-- SSM para Session Manager
+### 👤 IAM
 
-#### `iam.ecs-task-execution-role.tf`
-IAM Role para execução de tarefas:
-- Baixar imagens do ECR
-- Enviar logs para CloudWatch
-- Acessar Parameter Store (secrets)
-- Descriptografar com KMS
+| Arquivo | Descrição |
+|---------|-----------|
+| `iam.ecs-instance-role.tf` | Role para instâncias EC2 do ECS |
+| `iam.ecs-task-execution-role.tf` | Role para execução de tarefas |
+| `iam.ecs-task-role.tf` | Role para tarefas (aplicação) |
 
-#### `iam.ecs-task-role.tf`
-IAM Role para tarefas (aplicação):
-- Acesso ao EFS com IAM
+**Permissões:**
+- **Instance Role**: ECS, EC2, SSM
+- **Task Execution Role**: ECR, CloudWatch Logs, Parameter Store, KMS
+- **Task Role**: EFS com IAM
 
-### Logs
+### 📊 Logs
 
-#### `cloudwatch_log_group.tf`
-CloudWatch Log Group para logs do ECS com retenção de 7 dias.
+| Arquivo | Descrição |
+|---------|-----------|
+| `cloudwatch_log_group.tf` | Log group para ECS |
 
-## Variáveis Principais
+**Configuração:**
+- Log Group: `/ecs/task-def-wordpress-tf`
+- Retenção: 7 dias
+
+## 🚀 Deploy
+
+```bash
+# Inicializar Terraform
+terraform init
+
+# Validar configuração
+terraform validate
+
+# Planejar mudanças
+terraform plan
+
+# Aplicar infraestrutura
+terraform apply
+
+# Destruir infraestrutura
+terraform destroy
+```
+
+## 🔐 Segurança
+
+- ✅ ALB aceita apenas tráfego HTTPS do CloudFront (prefix list)
+- ✅ Senhas armazenadas no Parameter Store (SecureString)
+- ✅ RDS em subnets privadas
+- ✅ EFS encrypted
+- ✅ Storage RDS encrypted
+- ✅ Security Groups com least privilege
+- ✅ IAM roles com permissões mínimas
+- ✅ Sem listener HTTP no ALB
+- ✅ CloudFront força HTTPS (redirect-to-https)
+
+## 💰 Custos Estimados (us-east-1)
+
+| Recurso | Especificação | Custo Mensal |
+|---------|---------------|--------------|
+| ECS EC2 | 2x t4g.small | ~$24 |
+| RDS MySQL | 1x db.t4g.micro | ~$12 |
+| ALB | 1x ALB + data transfer | ~$16 |
+| EFS | ~1GB | ~$0.30 |
+| CloudFront | Free tier + data transfer | ~$0-5 |
+| Parameter Store | 3 parâmetros | Grátis |
+| Route 53 | 1 hosted zone | ~$0.50 |
+
+**Total estimado**: ~$55-70/mês (sem tráfego significativo)
+
+## 📝 Variáveis Principais
 
 ```hcl
 # Tags do projeto
@@ -223,54 +247,59 @@ ecs_cluster.name = "cluster-wordpress-ecs-tf"
 rds.identifier = "db-wordpress-tf"
 rds.engine = "mysql"
 rds.engine_version = "8.0"
+rds.username = "wordpress"
+rds.database_name = "wordpress"
 
 # CloudFront
 cloudfront.aliases = ["wordpress-tf.alisriosti.com.br"]
+
+# VPC
+vpc.cidr_block = "10.0.0.0/16"
 ```
 
-## Deploy
+## 🎯 Recursos Criados
 
-```bash
-# Inicializar Terraform
-terraform init
+- 1x VPC
+- 2x Subnets Públicas
+- 2x Subnets Privadas
+- 1x Internet Gateway
+- 2x Route Tables
+- 4x Security Groups
+- 1x Application Load Balancer
+- 1x Target Group
+- 1x ECS Cluster
+- 1x ECS Service
+- 1x ECS Task Definition
+- 1x Auto Scaling Group
+- 2x EC2 Instances (t4g.small)
+- 1x RDS MySQL Instance
+- 1x EFS File System
+- 2x EFS Mount Targets
+- 1x CloudFront Distribution
+- 4x CloudFront Cache Policies
+- 1x CloudFront Origin Request Policy
+- 1x Route 53 Record
+- 3x Parameter Store Parameters
+- 1x CloudWatch Log Group
+- 6x IAM Roles
+- 1x Launch Template
 
-# Planejar mudanças
-terraform plan
-
-# Aplicar infraestrutura
-terraform apply
-
-# Destruir infraestrutura
-terraform destroy
-```
-
-## Segurança
-
-- ✅ ALB aceita apenas tráfego HTTPS do CloudFront (prefix list)
-- ✅ Senhas armazenadas no Parameter Store (SecureString)
-- ✅ RDS em subnets privadas
-- ✅ EFS encrypted
-- ✅ Storage RDS encrypted
-- ✅ Security Groups com least privilege
-- ✅ IAM roles com permissões mínimas
-
-## Custos Estimados (us-east-1)
-
-- **ECS EC2**: 2x t4g.small (~$24/mês)
-- **RDS**: 1x db.t4g.micro (~$12/mês)
-- **ALB**: ~$16/mês + data transfer
-- **EFS**: ~$0.30/GB/mês
-- **CloudFront**: Free tier + data transfer
-- **NAT Gateway**: Não utilizado (custo zero)
-
-**Total estimado**: ~$55-70/mês (sem tráfego)
-
-## Melhorias Futuras
+## 🔄 Melhorias Futuras
 
 - [ ] Implementar NAT Gateway para subnets privadas
-- [ ] Adicionar CloudWatch Alarms
+- [ ] Adicionar CloudWatch Alarms (CPU, Memory, Health)
 - [ ] Implementar backup automático do RDS
-- [ ] Adicionar WAF no CloudFront
-- [ ] Implementar CI/CD pipeline
-- [ ] Multi-AZ para RDS
+- [ ] Adicionar AWS WAF no CloudFront
+- [ ] Implementar CI/CD pipeline (CodePipeline)
+- [ ] Multi-AZ para RDS (alta disponibilidade)
 - [ ] Auto Scaling dinâmico baseado em métricas
+- [ ] Implementar AWS Secrets Manager em vez de Parameter Store
+- [ ] Adicionar CloudWatch Container Insights
+- [ ] Implementar AWS Backup para EFS
+
+## 📚 Referências
+
+- [Terraform AWS Provider](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
+- [Amazon ECS Best Practices](https://docs.aws.amazon.com/AmazonECS/latest/bestpracticesguide/)
+- [CloudFront Cache Policies](https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/controlling-the-cache-key.html)
+- [WordPress on AWS](https://aws.amazon.com/getting-started/hands-on/launch-a-wordpress-website/)
