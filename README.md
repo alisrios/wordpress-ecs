@@ -140,17 +140,48 @@ Infraestrutura completa para WordPress rodando em ECS com Auto Scaling, CloudFro
 
 **Behaviors (ordem de precedência):**
 
-| Precedência | Path Pattern | Cache Policy | Origin Request | Response Headers |
-|-------------|--------------|--------------|----------------|------------------|
-| 0 | `/wp-content/*` | wordpress-wp-content-tf | - | Managed-SimpleCORS |
-| 1 | `/wp-admin/*` | wordpress-admin-tf | - | - |
-| 2 | `/wp-includes/images/blank.gif` | wordpress-wp-content-tf | - | - |
-| 3 (Default) | `*` | wordpress-default-tf | wordpress-general-tf | - |
+| Precedência | Path Pattern | Cache Policy | Origin Request | Response Headers | Allowed Methods |
+|-------------|--------------|--------------|----------------|------------------|-----------------|
+| 0 | `/wp-login.php` | wordpress-admin-tf | wordpress-general-tf | - | ALL |
+| 1 | `/wp-admin/*` | wordpress-admin-tf | wordpress-general-tf | - | ALL |
+| 2 | `/wp-json/*` | wordpress-default-tf | wordpress-general-tf | - | ALL |
+| 3 | `/wp-content/*` | wordpress-wp-content-tf | - | Managed-SimpleCORS | GET, HEAD, OPTIONS |
+| 4 | `/wp-includes/images/blank.gif` | wordpress-wp-content-tf | - | - | GET, HEAD |
+| 5 (Default) | `*` | wordpress-default-tf | wordpress-general-tf | - | ALL |
+
+**Legenda:**
+- **ALL**: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT
+- Behaviors 0-2: Sem cache ou cache mínimo (áreas administrativas e API)
+- Behaviors 3-4: Cache longo (arquivos estáticos)
+- Behavior 5: Cache padrão (páginas WordPress)
 
 **Cache Policies:**
-- **wordpress-wp-content-tf**: TTL 1s-86400s-31536000s, Headers (Origin, CORS), No cookies/query strings
-- **wordpress-admin-tf**: TTL 1s-86400s-31536000s, Headers (Origin, Referer, Host), Cookies WordPress, All query strings
-- **wordpress-default-tf**: TTL 1s-600s-31536000s, Headers (Origin, Referer, Host), Cookies WordPress, All query strings
+- **wordpress-wp-content-tf**: 
+  - TTL: min=1s, default=86400s (1 dia), max=31536000s (1 ano)
+  - Headers: Origin, Access-Control-Request-Method, Access-Control-Request-Headers, Host
+  - Cookies: None
+  - Query Strings: None
+  - Compression: Gzip + Brotli
+
+- **wordpress-admin-tf**: 
+  - TTL: min=0s, default=1s, max=1s (cache mínimo)
+  - Headers: Origin, Referer, Host
+  - Cookies: wordpress-test-cookie, wordpress_*, comment_author*, wp-settings*
+  - Query Strings: All
+  - Compression: Gzip + Brotli
+
+- **wordpress-default-tf**: 
+  - TTL: min=1s, default=600s (10 min), max=31536000s (1 ano)
+  - Headers: Origin, Referer, Host
+  - Cookies: wordpress_test_cookie, wordpress_*, comment_author*, wp-settings*
+  - Query Strings: All
+  - Compression: Gzip + Brotli
+
+**Origin Request Policy:**
+- **wordpress-general-tf**:
+  - Headers: All viewer headers
+  - Cookies: wordpress_test_cookie, wordpress_*, comment_author*, wp-settings*, elementor_*
+  - Query Strings: All
 
 ### 🌐 DNS
 
